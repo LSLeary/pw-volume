@@ -257,6 +257,14 @@ fn parse_dump<'a>(
     Ok((node, route))
 }
 
+fn to_percentage(ampl : f64) -> f64 {
+    ampl.cbrt() * 100.0
+}
+
+fn from_percentage(percentage : f64) -> f64 {
+    (percentage / 100.0).powf(3.0)
+}
+
 fn pw_cli<'a>(
     matches: &ArgMatches<'_>,
     node: &'a PipeWireInterfaceNode<'a>,
@@ -278,11 +286,11 @@ fn pw_cli<'a>(
             let delta = arg
                 .value_of("DELTA")
                 .ok_or_else(|| anyhow!("DELTA argument not found"))?;
-            let percent = &delta[..delta.len() - 1].parse::<f64>()?;
-            let increment = percent * 0.01;
+            let increment = &delta[..delta.len() - 1].parse::<f64>()?;
             let mut vols = Vec::with_capacity(route.props.channel_volumes.len());
             for vol in route.props.channel_volumes.iter() {
-                let new_vol = (vol + increment).clamp(0.0, 1.0);
+                let new_vol = from_percentage(to_percentage(*vol) + increment)
+                    .clamp(0.0, 1.0);
                 vols.push(new_vol);
             }
             cmd.props.channel_volumes = vols;
@@ -293,7 +301,7 @@ fn pw_cli<'a>(
             } else {
                 // assumes that all channels have the same volume.
                 let vol = route.props.channel_volumes[0];
-                let percentage = vol * 100.0;
+                let percentage = to_percentage(vol);
                 println!(
                     r#"{{"percentage":{:.0}, "tooltip":"{}%"}}"#,
                     percentage, percentage

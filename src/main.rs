@@ -295,6 +295,18 @@ fn pw_cli<'a>(
             }
             cmd.props.channel_volumes = vols;
         }
+        ("set", Some(arg)) => {
+            let vol_arg = arg
+                .value_of("VOLUME")
+                .ok_or_else(|| anyhow!("VOLUME argument not found"))?;
+            let volume = vol_arg[..vol_arg.len() - 1].parse::<f64>()?;
+            let new_vol = from_percentage(volume).clamp(0.0, 1.0);
+            let mut vols = Vec::with_capacity(route.props.channel_volumes.len());
+            for _ in route.props.channel_volumes.iter() {
+                vols.push(new_vol);
+            }
+            cmd.props.channel_volumes = vols;
+        }
         ("status", _) => {
             if route.props.mute {
                 println!(r#"{{"alt":"mute", "tooltip":"muted", "class":"muted"}}"#);
@@ -383,6 +395,24 @@ fn main() {
                         .takes_value(true)
                         .required(true)
                         .allow_hyphen_values(true)
+                        .validator(move |s| {
+                            if is_decimal_percentage(&s) {
+                                Ok(())
+                            } else {
+                                Err(format!(r#""{}" is not a decimal percentage"#, s))
+                            }
+                        }),
+                ),
+        )
+        .subcommand(
+            SubCommand::with_name("set")
+                .about("set volume to a decimal percentage, e.g. '50%'")
+                .setting(AppSettings::ArgRequiredElseHelp)
+                .arg(
+                    Arg::with_name("VOLUME")
+                        .help("decimal percentage, e.g. '50%'")
+                        .takes_value(true)
+                        .required(true)
                         .validator(move |s| {
                             if is_decimal_percentage(&s) {
                                 Ok(())
